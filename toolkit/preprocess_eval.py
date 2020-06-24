@@ -33,7 +33,7 @@ def ud2companion(ud):
     del ud["nodes"]
     if "edges" in ud:
         del ud["edges"]
-    # print (ud)
+    print (ud)
     return ud
 
 
@@ -46,7 +46,7 @@ args = parser.parse_args();
 outputs = {"dm": [], "psd": [], "eds": [], "ucca": [], "amr": []}
 flavor = {"dm": 0, "psd": 0, "eds": 1, "ucca": 1, "amr": 2}
 
-with open(args.udpipe, 'r', encoding='utf8') as fi_ud, open(args.input, 'r', encoding='utf8') as fi_input:
+with open(args.udpipe, 'r') as fi_ud, open(args.input, 'r') as fi_input:
     line_ud = fi_ud.readline().strip()
     line_input = fi_input.readline().strip()
     while line_ud and line_input:
