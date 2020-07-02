@@ -24,3 +24,7 @@ python3 ${TOOLKIT_HOME}/tamr_aligner/eager_oracle.py -mod dump -aligned $1.new_a
 
 echo '######## adding extra mrp information ...' >&2
 python3 ${TOOLKIT_HOME}/amr_add_extra.py -i $1.actions.txt -o $1.actions.aug.txt -e mrp $1
+
+
+------------------------
+python3 utils/mrp_to_amr.py -i data/amr.val.aug.mrp -o amr.val.aug.mrp.amr.txt --not_amr_str_only --all_nodes
