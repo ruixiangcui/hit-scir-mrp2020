@@ -1,8 +1,4 @@
-# HIT-SCIR CoNLL2019 Unified Transition-Parser
-
-This repository accompanies the paper, "HIT-SCIR at MRP 2019: A Unified Pipeline for Meaning Representation Parsing via Efficient Training and Effective Encoding", providing codes to train models and pre/post-precessing mrp dataset.
-
-CoNLL2019 Shared Task Official Website: <http://mrp.nlpl.eu/>
+# MRP 2020 Unified Transition-Parser
 
 ## Pre-requisites
 
