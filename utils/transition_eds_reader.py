@@ -43,8 +43,8 @@ class Node(object):
         self.anchored = False
         self.anchors = []
         self.label = info["label"]
-        if "properties" in info:
-            assert len(info["properties"]) == 1
+        # if "properties" in info:
+        #     assert len(info["properties"]) == 1
         self.properties = info["properties"][0] if "properties" in info else None
         self.values = info["values"][0] if "values" in info else None
 
@@ -192,6 +192,7 @@ class Graph(object):
                           self.input[node_anchored_begin:node_anchored_end], \
                           (token_anchored_begin, token_anchored_end), '-->',
                           self.input[token_anchored_begin:token_anchored_end])
+                    alignment_dict[node_id + len(tokens)].append(token_idx)
 
         # Step2: Link node and its align token(s) via alignment_dict
         # Add Terminal Edge
@@ -447,6 +448,7 @@ def get_oracle_actions(tokens, arc_indices, arc_tags, root_id, concept_node, nod
         node_end_dict[token_id] = {}
 
     for order_node_id in node_range_dict.keys():
+        # print(order_node_id)
         begin_dict[order_node_id] = alignment_dict[order_node_id][0]
         end_dict[order_node_id] = alignment_dict[order_node_id][-1]
 
