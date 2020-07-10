@@ -9,7 +9,7 @@ from allennlp.data.fields import Field, TextField, MetadataField
 from allennlp.data.instance import Instance
 from allennlp.data.token_indexers import SingleIdTokenIndexer, TokenIndexer
 from allennlp.data.tokenizers import Token
-from conllu.parser import parse_line, DEFAULT_FIELDS
+
 from overrides import overrides
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -127,14 +127,11 @@ class Graph(object):
         return childs, child_ids
 
     def extract_token_info_from_companion_data(self):
-        annotation = []
-        for line in self.companion:
-            line = '\t'.join(line)
-            annotation.append(parse_line(line, DEFAULT_FIELDS))
+        annotation = self.companion["toks"]
 
-        tokens = [x["form"] for x in annotation if x["form"] is not None]
-        lemmas = [x["lemma"] for x in annotation if x["lemma"] is not None]
-        pos_tags = [x["upostag"] for x in annotation if x["upostag"] is not None]
+        tokens = list(filter(None, (x.get("word", x.get("form")) for x in annotation)))
+        lemmas, pos_tags = [list(filter(None, (x.get(key) for x in annotation)))
+                                    for key in ("lemma", "upostag")]
         token_range = [tuple([int(i) for i in list(x["misc"].values())[0].split(':')]) for x in annotation]
 
         return {"tokens": tokens,
@@ -245,9 +242,8 @@ class Graph(object):
         mrp_lemmas = []
         mrp_pos_tags = []
 
-        if len(self.companion) != 0:
+        if type(self.companion) == dict:
             token_info = self.extract_token_info_from_companion_data()
-
             lemmas = token_info["lemmas"]
             pos_tags = token_info["pos_tags"]
             token_range = token_info["token_range"]
