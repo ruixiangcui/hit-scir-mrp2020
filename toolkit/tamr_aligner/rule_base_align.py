@@ -13,7 +13,9 @@ from rule_based_aligner.matcher import *
 from rule_based_aligner.updater import *
 from rule_based_aligner.stemmer import Stemmer
 from rule_based_aligner.aligned_results import AlignedResults
-
+import nltk
+nltk.download('stopwords')
+nltk.download('wordnet')
 
 def number_of_enumerate_alignment(align_results):
     n_test = 1
