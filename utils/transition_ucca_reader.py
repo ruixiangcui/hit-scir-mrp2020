@@ -9,7 +9,6 @@ from allennlp.data.fields import Field, TextField, MetadataField
 from allennlp.data.instance import Instance
 from allennlp.data.token_indexers import SingleIdTokenIndexer, TokenIndexer
 from allennlp.data.tokenizers import Token
-
 from overrides import overrides
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -57,7 +56,7 @@ class Node(object):
     def add_head(self, edge):
         assert edge["target"] == self.id
         remote = False
-        if "properties" in edge and "remote" in edge["properties"]:
+        if "properties" in edge and "remote" in edge["properties"] or "attributes" in edge and "remote" in edge["attributes"]:
             remote = True
         if edge["source"] in self.head_ids:
             self.heads.append(Head(edge["source"], edge["label"], remote))
@@ -71,7 +70,7 @@ class Node(object):
         assert edge["source"] == self.id
         # assert self.anchored ==False
         remote = False
-        if "properties" in edge and "remote" in edge["properties"]:
+        if "properties" in edge and "remote" in edge["properties"] or "attributes" in edge and "remote" in edge["attributes"]:
             remote = True
         if edge["target"] in self.child_ids:
             self.childs.append(Child(edge["target"], edge["label"], remote))
@@ -244,6 +243,7 @@ class Graph(object):
 
         if type(self.companion) == dict:
             token_info = self.extract_token_info_from_companion_data()
+
             lemmas = token_info["lemmas"]
             pos_tags = token_info["pos_tags"]
             token_range = token_info["token_range"]
@@ -633,7 +633,8 @@ def get_oracle_actions(tokens, arc_indices, arc_tags, root_id, concept_node_expe
             return
 
         # SWAP
-        elif len(stack) > 2 and generated_order[s0] > generated_order[s1]:
+        elif len(stack) > 2 and generated_order[s0] > generated_order[s1] and (
+                has_unfound_child(stack[-3]) or lack_head(stack[-3])):
             buffer.append(stack.pop(-2))
             actions.append("SWAP")
             return
