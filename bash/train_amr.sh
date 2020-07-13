@@ -1,7 +1,8 @@
 #!/bin/bash
 #SBATCH --mem=30G
-#SBATCH --time=1-0
-#SBATCH -p gpu --gres=gpu:titanx:1
+#SBATCH --time=5-0
+#SBATCH -p gpu --gres=gpu:titanrtx:1
+#SBATCH -c10
 
 # AMR
 # !!! AMR parser accepts input of augmented amr format instead of mrp format !!!
