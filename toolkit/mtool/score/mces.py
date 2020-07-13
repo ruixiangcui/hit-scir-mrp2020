@@ -63,7 +63,9 @@ class InternalGraph():
                     j = get_or_update(index, ("P", prop, val))
                     self.edges.append((i, reindex(j), None))
 
-def initial_node_correspondences(graph1, graph2, identities1=None, identities2=None):
+def initial_node_correspondences(graph1, graph2,
+                                 identities1, identities2,
+                                 bilexical):
     #
     # in the following, we assume that nodes in raw and internal
     # graphs correspond by position into the .nodes. list
@@ -73,7 +75,15 @@ def initial_node_correspondences(graph1, graph2, identities1=None, identities2=N
     edges = np.zeros(shape, dtype=np.int);
     anchors = np.zeros(shape, dtype=np.int);
 
-    queue = [];
+    #
+    # initialization needs to be sensitive to whether or not we are looking at
+    # ordered graphs (aka Flavor 0, or the SDP family)
+    #
+    if bilexical:
+        queue = None;
+    else:
+        queue = [];
+        
     for i, node1 in enumerate(graph1.nodes):
         for j, node2 in enumerate(graph2.nodes + [None]):
             rewards[i, j], _, _, _ = node1.compare(node2);
@@ -94,18 +104,9 @@ def initial_node_correspondences(graph1, graph2, identities1=None, identities2=N
                 if identities1 and identities2:
                     anchors[i, j] += len(identities1[node1.id] &
                                          identities2[node2.id])
-            queue.append((rewards[i, j], edges[i, j], anchors[i, j],
-                          i, j if node2 is not None else None));
-
-    pairs = [];
-    sources = set();
-    targets = set();
-    for _, _, _, i, j in sorted(queue, key = itemgetter(0, 2, 1),
-                                reverse = True):
-        if i not in sources and j not in targets:
-            pairs.append((i, j));
-            sources.add(i);
-            if j is not None: targets.add(j);
+            if queue is not None:
+                queue.append((rewards[i, j], edges[i, j], anchors[i, j],
+                              i, j if node2 is not None else None));
 
     #
     # adjust rewards to use anchor overlap and edge potential as a secondary
@@ -116,7 +117,67 @@ def initial_node_correspondences(graph1, graph2, identities1=None, identities2=N
     anchors *= 10;
     rewards += edges + anchors;
 
+    if queue is None:        
+        pairs = levenshtein(graph1, graph2);
+    else:
+        pairs = [];
+        sources = set();
+        targets = set();
+        for _, _, _, i, j in sorted(queue, key = itemgetter(0, 2, 1),
+                                    reverse = True):
+            if i not in sources and j not in targets:
+                pairs.append((i, j));
+                sources.add(i);
+                if j is not None: targets.add(j);
+
     return pairs, rewards;
+
+def levenshtein(graph1, graph2):
+    m = len(graph1.nodes)
+    n = len(graph2.nodes)
+    d = {(i,j): float('-inf') for i in range(m+1) for j in range(n+1)}
+    p = {(i,j): None for i in range(m+1) for j in range(n+1)}
+    d[(0,0)] = 0
+    for i in range(1, m+1):
+        d[(i,0)] = 0
+        p[(i,0)] = ((i-1,0), None)
+    for j in range(1, n+1):
+        d[(0,j)] = 0
+        p[(0,j)] = ((0,j-1), None)
+    for j, node2 in enumerate(graph2.nodes, 1):
+        for i, node1 in enumerate(graph1.nodes, 1):
+            best_d = float('-inf')
+            # "deletion"
+            cand_d = d[(i-1,j-0)]
+            if cand_d > best_d:
+                best_d = cand_d
+                best_p = ((i-1,j-0), None)
+            # "insertion"
+            cand_d = d[(i-0,j-1)]
+            if cand_d > best_d:
+                best_d = cand_d
+                best_p = ((i-0,j-1), None)
+            # "alignment"
+            cand_d = d[(i-1,j-1)] + node1.compare(node2)[2]
+            if cand_d > best_d:
+                best_d = cand_d
+                best_p = ((i-1,j-1), (i-1, j-1))
+            d[(i,j)] = best_d
+            p[(i,j)] = best_p
+
+    pairs = {i: None for i in range(len(graph1.nodes))}
+    def backtrace(idx):
+        ptr = p[idx]
+        if ptr is None:
+            pass
+        else:
+            next_idx, pair = ptr
+            if pair is not None:
+                i, j = pair
+                pairs[i] = j
+            backtrace(next_idx)
+    backtrace((m, n))
+    return sorted(pairs.items())
 
 # The next function constructs the initial table with the candidates
 # for the edge-to-edge correspondence. Each edge in the source graph
@@ -173,10 +234,13 @@ def splits(xs):
     # The source graph node is not mapped to any target graph node.
     yield -1, xs
 
-def sorted_splits(i, xs, rewards, pairs):
+def sorted_splits(i, xs, rewards, pairs, bilexical):
     for _i, _j in pairs:
         if i == _i: j = _j if _j is not None else -1
-    sorted_xs = sorted(xs, key=rewards[i].item, reverse=True)
+    if bilexical:
+        sorted_xs = sorted(xs, key=lambda x: (-abs(x-i), rewards.item((i, x)), -x), reverse=True)
+    else:
+        sorted_xs = sorted(xs, key=lambda x: (rewards.item((i, x)), -x), reverse=True)
     if j in sorted_xs or j < 0:
         if j >= 0: sorted_xs.remove(j)
         sorted_xs = [j] + sorted_xs
@@ -228,9 +292,8 @@ def domination_conflict(graph1, graph2, cv, i, j, dominated1, dominated2):
 # (graph1) and the target graph (graph2). This implements the
 # algorithm of McGregor (1982).
 def correspondences(graph1, graph2, pairs, rewards, limit=None, trace=0,
-                    dominated1=None, dominated2=None):
+                    dominated1=None, dominated2=None, bilexical = False):
     global counter
-    bilexical = graph1.flavor == 0 and graph2.flavor == 0
     index = dict()
     graph1 = InternalGraph(graph1, index)
     graph2 = InternalGraph(graph2, index)
@@ -239,7 +302,7 @@ def correspondences(graph1, graph2, pairs, rewards, limit=None, trace=0,
     # Visit the source graph nodes in descending order of rewards.
     source_todo = [pair[0] for pair in pairs]
     todo = [(cv, ce, source_todo, sorted_splits(
-        source_todo[0], graph2.nodes, rewards, pairs))]
+        source_todo[0], graph2.nodes, rewards, pairs, bilexical))]
     n_matched = 0
     while todo and (limit is None or counter <= limit):
         cv, ce, source_todo, untried = todo[-1]
@@ -264,7 +327,8 @@ def correspondences(graph1, graph2, pairs, rewards, limit=None, trace=0,
                     if trace > 2: print("> ", end="", file = sys.stderr)
                     todo.append((new_cv, new_ce, new_source_todo,
                                  sorted_splits(new_source_todo[0],
-                                               new_untried, rewards, pairs)))
+                                               new_untried, rewards,
+                                               pairs, bilexical)))
                 else:
                     if trace > 2: print(file = sys.stderr)
                     yield new_cv, new_ce
@@ -286,18 +350,21 @@ def is_injective(correspondence):
                 seen.add(x)
     return True
 
-def schedule(g, s, rrhc_limit, mces_limit, trace):
+def schedule(g, s, rrhc_limit, mces_limit, trace, errors):
     global counter;
     try:
         counter = 0;
         g_identities, s_identities, g_dominated, s_dominated \
             = identities(g, s);
+        bilexical = g.flavor == 0 or g.framework in {"dm", "psd", "pas", "ccd"};
         pairs, rewards \
             = initial_node_correspondences(g, s,
-                                           identities1 = g_identities,
-                                           identities2 = s_identities);
+                                           g_identities, s_identities,
+                                           bilexical);
+        if errors is not None and g.framework not in errors: errors[g.framework] = dict();
         if trace > 1:
-            print("\n\ngraph #{}".format(g.id), file = sys.stderr);
+            print("\n\ngraph #{} ({}; {})".format(g.id, g.flavor, g.framework),
+                  file = sys.stderr);
             print("number of gold nodes: {}".format(len(g.nodes)),
                   file = sys.stderr);
             print("number of system nodes: {}".format(len(s.nodes)),
@@ -337,7 +404,8 @@ def schedule(g, s, rrhc_limit, mces_limit, trace):
                 enumerate(correspondences(g, s, pairs, rewards,
                                           mces_limit, trace,
                                           dominated1 = g_dominated,
-                                          dominated2 = s_dominated)):
+                                          dominated2 = s_dominated,
+                                          bilexical = bilexical)):
 #               assert is_valid(ce)
 #               assert is_injective(ce)
                 n = sum(map(len, ce.values()));
@@ -347,7 +415,7 @@ def schedule(g, s, rrhc_limit, mces_limit, trace):
                               "".format(counter, i, n), file = sys.stderr);
                     matches, best_cv, best_ce = n, cv, ce;
         tops, labels, properties, anchors, edges, attributes \
-            = g.score(s, best_cv or pairs);
+            = g.score(s, best_cv or pairs, errors);
 #       assert matches >= smatches;
         if trace > 1:
             if smatches and matches != smatches:
@@ -362,19 +430,19 @@ def schedule(g, s, rrhc_limit, mces_limit, trace):
             if trace > 2:
                 print(best_cv, file = sys.stderr)
                 print(best_ce, file = sys.stderr)
-        return g.id, tops, labels, properties, anchors, \
+        return g.id, g, s, tops, labels, properties, anchors, \
             edges, attributes, matches, counter, None;
                 
     except Exception as e:
         #
         # _fix_me_
         #
-        return g.id, None, None, None, None, None, None, None, None, e;
+        raise e;
+        return g.id, g, s, None, None, None, None, None, None, None, None, e;
 
 def evaluate(gold, system, format = "json",
              limits = None,
-             cores = 0, trace = 0):
-    
+             cores = 0, trace = 0, errors = None, quiet = False):
     def update(total, counts):
         for key in ("g", "s", "c"):
             total[key] += counts[key];
@@ -396,6 +464,7 @@ def evaluate(gold, system, format = "json",
               file = sys.stderr);
     total_matches = total_steps = 0;
     total_pairs = 0;
+    total_empty = 0;
     total_inexact = 0;
     total_tops = {"g": 0, "s": 0, "c": 0}
     total_labels = {"g": 0, "s": 0, "c": 0}
@@ -403,22 +472,30 @@ def evaluate(gold, system, format = "json",
     total_anchors = {"g": 0, "s": 0, "c": 0}
     total_edges = {"g": 0, "s": 0, "c": 0}
     total_attributes = {"g": 0, "s": 0, "c": 0}
-    scores = dict() if trace else None
+    scores = dict() if trace else None;
     if cores > 1:
         if trace > 1:
             print("mces.evaluate(): using {} cores".format(cores),
                   file = sys.stderr);
         with mp.Pool(cores) as pool:
             results = pool.starmap(schedule,
-                                   ((g, s, rrhc_limit, mces_limit, trace)
-                                    for g, s in score.core.intersect(gold, system)));
+                                   ((g, s, rrhc_limit, mces_limit,
+                                     trace, errors)
+                                    for g, s
+                                    in score.core.intersect(gold,
+                                                            system,
+                                                            quiet = quiet)));
     else:
-        results = (schedule(g, s, rrhc_limit, mces_limit, trace)
+        results = (schedule(g, s, rrhc_limit, mces_limit, trace, errors)
                    for g, s in score.core.intersect(gold, system));
 
-    for id, tops, labels, properties, anchors, \
+    for id, g, s, tops, labels, properties, anchors, \
         edges, attributes, matches, steps, error \
         in results:
+        framework = g.framework if g.framework else "none";
+        if scores is not None and framework not in scores: scores[framework] = dict();
+        if s.nodes is None or len(s.nodes) == 0:
+            total_empty += 1;
         if error is None:
             total_matches += matches;
             total_steps += steps;
@@ -431,18 +508,21 @@ def evaluate(gold, system, format = "json",
             total_pairs += 1;
             if mces_limit == 0 or steps > mces_limit: total_inexact += 1;
 
-            if trace:
-                if id in scores:
-                    print("mces.evaluate(): duplicate graph identifier: {}"
-                          "".format(id), file = sys.stderr);
-                scores[id] \
+            if trace and s.nodes is not None and len(s.nodes) != 0:
+                if id in scores[framework]:
+                    print("mces.evaluate(): duplicate {} graph identifier: {}"
+                          "".format(framework, id), file = sys.stderr);
+                scores[framework][id] \
                     = {"tops": tops, "labels": labels,
                        "properties": properties, "anchors": anchors,
-                       "edges": edges, "attributes": attributes};
+                       "edges": edges, "attributes": attributes,
+                       "exact": not (mces_limit == 0 or steps > mces_limit),
+                       "steps": steps};
         else:
-            print("mces.evaluate(): exception in graph #{}:\n{}"
-                  "".format(id, error));
-            scores[id] = {"error": repr(error)};
+            print("mces.evaluate(): exception in {} graph #{}:\n{}"
+                  "".format(framework, id, error));
+            if trace:
+                scores[framework][id] = {"error": repr(error)};
 
     total_all = {"g": 0, "s": 0, "c": 0};
     for counts in [total_tops, total_labels, total_properties, total_anchors,
@@ -450,7 +530,8 @@ def evaluate(gold, system, format = "json",
         update(total_all, counts);
         finalize(counts);
     finalize(total_all);
-    result = {"n": total_pairs, "exact": total_pairs - total_inexact,
+    result = {"n": total_pairs, "null": total_empty,
+              "exact": total_pairs - total_inexact,
               "tops": total_tops, "labels": total_labels,
               "properties": total_properties, "anchors": total_anchors,
               "edges": total_edges, "attributes": total_attributes,

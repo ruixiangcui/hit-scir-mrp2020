@@ -162,6 +162,49 @@ anchors with the corresponding sub-string from the `input` field of the graph
 ./main.py --n 1 --strings --read mrp --write dot data/sample/ucca/wsj.mrp vinken.dot
 ```
 
+Diagnostics
+--------------
+
+When scoring with the MRP metric, `mtool` can optionally provide a per-item
+breakdown of differences between the gold and the system graphs, i.e. record
+false negatives (‘missing’ tuples) and false positives (‘surplus’ ones).
+This functionality is activated via the `--errors` command-line option, and
+tuple mismatches between the two graphs are recorded as a hierarchically
+nested JSON object, indexed (in order) by framework, item identifier, and tuple
+type.
+
+For example:
+```
+./main.py --read mrp --score mrp --framework eds --gold data/score/lpps.mrp --errors errors.json data/score/eds/lpps.peking.mrp
+```
+For the first EDS item (`#102990`) in this comparison, `errors.json` will
+contain a sub-structure like the following:
+```
+{"correspondences": [[0, 0], [1, 1], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 10], [10, 11],
+                     [11, 12], [12, 13], [13, 15], [14, 16], [15, 17], [16, 14], [17, 18], [18, 19], [19, 20]],
+ "labels": {"missing": [[2, "_very+much_a_1"]],
+            "surplus": [[3, "_much_x_deg"], [2, "_very_x_deg"]]},
+ "anchors": {"missing": [[2, [6, 7, 8, 9, 11, 12, 13, 14]]],
+             "surplus": [[2, [6, 7, 8, 9]], [3, [11, 12, 13, 14]]]},
+ "edges": {"surplus": [[2, 3, "arg1"]]}}
+```
+When interpreting this structure, there are (of course) two separate spaces of
+node identifiers; the `correspondences` vector records the (optimal)
+node-to-node relation found by the MRP scorer, pairing identifiers from the
+*gold* graph with corresponding identifiers in the *system* graph.
+In the above, for example, gold node `#2` corresponds to system node `#3`,
+and there is a spurious node `#2` in the example system graph, which
+does not correspond to any of the gold nodes.
+Node identifiers in `"missing"` entries refer to gold nodes, whereas
+identifiers in `"surplus"` entries refer to the system graph, and they may
+or may not stand in a correspondence relation to a gold node.
+
+The differences between these two graphs can be visualized as follows, color-coding
+false negatives in red, and false positives in blue
+(and using gold identifiers, where available).
+
+![sample visualization](https://github.com/cfmrp/mtool/blob/master/data/score/eds/lpps.102990.png)
+
 Common Options
 --------------
 
@@ -200,8 +243,8 @@ Contributors
 
 + Yuta Koreeda <koreyou@mac.com> (@koreyou)
 + Matthias Lindemann <mlinde@coli.uni-saarland.de> (@namednil)
-+ Milan Straka <straka@ufal.mff.cuni.cz> (@foxik)
 + Hiroaki Ozaki <taryou.ozk@gmail.com> (@taryou)
++ Milan Straka <straka@ufal.mff.cuni.cz> (@foxik)
 
 [![Build Status (Travis CI)](https://travis-ci.org/cfmrp/mtool.svg?branch=master)](https://travis-ci.org/cfmrp/mtool)
 [![Build Status (AppVeyor)](https://ci.appveyor.com/api/projects/status/github/cfmrp/mtool?svg=true)](https://ci.appveyor.com/project/danielh/mtool)
