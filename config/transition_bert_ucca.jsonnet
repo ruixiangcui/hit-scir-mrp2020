@@ -71,7 +71,8 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["tokens", "num_tokens"]],
-    "batch_size": std.parseInt(std.extVar('BATCH_SIZE'))
+    "batch_size": std.parseInt(std.extVar('BATCH_SIZE')),
+    "max_instances_in_memory": 1
   },
   "trainer": {
     "num_epochs": 50,

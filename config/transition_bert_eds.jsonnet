@@ -104,7 +104,7 @@
     "grad_norm": 5.0,
     "grad_clipping": 5.0,
     "patience": 50,
-    "cuda_device": 0,
+    "cuda_device": -1,
     "validation_metric": "+all-f",
     "optimizer": {
       "type": "adam",
