@@ -182,7 +182,8 @@ class TransitionParser(Model):
                 total_node_num[sent_idx] = sent_len[sent_idx] + len(concept_node[sent_idx])
                 # if self.buffer.get_len(sent_idx) != 0:
 
-                if not (self.buffer.get_len(sent_idx) == 0 and self.stack.get_len(sent_idx) == 1):
+                if not (self.buffer.get_len(sent_idx) == 0 and self.stack.get_len(sent_idx) == 1) and \
+                        (oracle_actions is None or oracle_actions[sent_idx]):
                     trans_not_fin = True
                     valid_actions = []
                     # given the buffer and stack, conclude the valid action list
@@ -215,7 +216,11 @@ class TransitionParser(Model):
                             valid_actions += action_id['END']
 
                     log_probs = None
-                    action = valid_actions[0]
+
+                    if not valid_actions:
+                        action = action_id['FINISH']
+                    else:
+                        action = valid_actions[0]
 
                     if len(valid_actions) > 1:
                         stack_emb = self.stack.get_output(sent_idx)

@@ -327,6 +327,9 @@ class EDSDatasetReaderConll2019(DatasetReader):
                 gold_mrps = ret["gold_mrps"]
 
                 concept_node = ret["concept_node"]
+                if arc_indices is not None and not arc_indices:
+                    continue
+
                 gold_actions = get_oracle_actions(tokens, arc_indices, arc_tags, root_id, concept_node, node_info_dict) if arc_indices else None
 
                 # if len(gold_actions) / len(tokens) > 20:
