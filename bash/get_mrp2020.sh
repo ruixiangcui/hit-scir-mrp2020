@@ -8,7 +8,4 @@ mkdir -p data
 python toolkit/mrp2conllu.py mrp/2020/cl/companion/mrp_file --outdir mrp/2020/cl/companion/
 
 # Augment raw data with companion
-#for EDS and AMR
-python toolkit/augment_data.py companion_file.conllu EDS_or_AMR_data.mrp output_augmented_EDS_or_AMR_data.mrp
-#for UCCA
-python toolkit/augment_data_conllu.py companion_file.conllu UCCA_data.mrp output_augmented_UCCA_data.mrp
+python toolkit/augment_data.py companion_file.conllu mrp_file.mrp augmented_data.mrp
