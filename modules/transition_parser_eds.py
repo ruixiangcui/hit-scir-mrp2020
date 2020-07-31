@@ -455,6 +455,8 @@ class TransitionParser(Model):
                                             oracle_actions=oracle_actions)
 
             _loss = ret_train['loss']
+            if torch.isnan(_loss):
+                _loss = torch.tensor(0)
             output_dict = {'loss': _loss}
             return output_dict
 
