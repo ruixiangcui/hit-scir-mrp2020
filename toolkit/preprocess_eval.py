@@ -18,7 +18,7 @@ def ud2companion(ud):
     if "edges" in ud:
         for edge in ud["edges"]:
             src = edge["source"]
-            tgt = edge["target"]
+            tgt = edge["target"]-1
             # print (src, tgt)
             if lines[tgt][6] is not '_':
                 print("Multi-head in ud : {} \n (node: {})".format(ud, tgt))
@@ -43,8 +43,8 @@ parser.add_argument("input", type=str, help="mrp input file (contains predicting
 parser.add_argument("--outdir", type=str, help="output dir");
 args = parser.parse_args();
 
-outputs = {"dm": [], "psd": [], "eds": [], "ucca": [], "amr": []}
-flavor = {"dm": 0, "psd": 0, "eds": 1, "ucca": 1, "amr": 2}
+outputs = {"ptg": [], "drg": [], "eds": [], "ucca": [], "amr": []}
+flavor = {"ptg": 1, "drg": 2, "eds": 1, "ucca": 1, "amr": 2}
 
 with open(args.udpipe, 'r', encoding='utf8') as fi_ud, open(args.input, 'r', encoding='utf8') as fi_input:
     line_ud = fi_ud.readline().strip()
@@ -52,7 +52,7 @@ with open(args.udpipe, 'r', encoding='utf8') as fi_ud, open(args.input, 'r', enc
     while line_ud and line_input:
         input = json.loads(line_input, object_pairs_hook=collections.OrderedDict)
         ud = json.loads(line_ud, object_pairs_hook=collections.OrderedDict)
-        assert input["id"] == ud["id"]
+        # assert input["id"] == ud["id"]
         mrp = ud2companion(ud)
         targets = input["targets"]
         for target in targets:
@@ -62,8 +62,8 @@ with open(args.udpipe, 'r', encoding='utf8') as fi_ud, open(args.input, 'r', enc
             outputs[target].append(data)
         line_ud = fi_ud.readline().strip()
         line_input = fi_input.readline().strip()
-print("Number of each framework:\n dm:{}, psd:{}, eds:{}, ucca:{}, amr:{}".format(
-    len(outputs["dm"]), len(outputs["psd"]), len(outputs["eds"]), len(outputs["ucca"]), len(outputs["amr"])))
+print("Number of each framework:\n ptg:{}, drg:{}, eds:{}, ucca:{}, amr:{}".format(
+    len(outputs["ptg"]), len(outputs["drg"]), len(outputs["eds"]), len(outputs["ucca"]), len(outputs["amr"])))
 
 if args.outdir is not None:
     for type in outputs.keys():
