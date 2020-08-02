@@ -47,14 +47,15 @@ outputs = {"ptg": [], "drg": [], "eds": [], "ucca": [], "amr": []}
 flavor = {"ptg": 1, "drg": 2, "eds": 1, "ucca": 1, "amr": 2}
 
 with open(args.udpipe, 'r', encoding='utf8') as fi_ud, open(args.input, 'r', encoding='utf8') as fi_input:
-    # line_ud = fi_ud.readline().strip()
-    line_input = fi_input.readline().strip()
-    lines_ud = fi_ud.readlines()
-    while line_input:
-        input = json.loads(line_input, object_pairs_hook=collections.OrderedDict)
-        print(input["id"])
-        for line_ud in lines_ud:
-            ud = json.loads(line_ud, object_pairs_hook=collections.OrderedDict)
+    # line_input = fi_input.readline().strip()
+    lines_input = fi_input.readlines()
+    line_ud = fi_ud.readline().strip()
+    # lines_ud = fi_ud.readlines()
+    while line_ud:
+        ud = json.loads(line_ud, object_pairs_hook=collections.OrderedDict)
+        print(ud["id"])
+        for line_input in lines_input:
+            input = json.loads(line_input, object_pairs_hook=collections.OrderedDict)
             if input["id"] == ud["id"]:
                 mrp = ud2companion(ud)
                 targets = input["targets"]
@@ -64,7 +65,6 @@ with open(args.udpipe, 'r', encoding='utf8') as fi_ud, open(args.input, 'r', enc
                     data["flavor"] = flavor[target]
                     outputs[target].append(data)
                 line_ud = fi_ud.readline().strip()
-                line_input = fi_input.readline().strip()
                 break
 
 print("Number of each framework:\n ptg:{}, drg:{}, eds:{}, ucca:{}, amr:{}".format(
